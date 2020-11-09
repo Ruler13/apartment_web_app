@@ -26,6 +26,7 @@ The data that must be used can be found under `data/import.json`.
 - Apache
 - Composer
 - NodeJS 12
+- Database with the required informations of apartments
 
 ## Installation
 
