@@ -1,0 +1,213 @@
+### --- MIME types --- ###
+
+<IfModule mod_mime.c>
+  # HTML
+  AddType text/html                                   html
+
+  # CSS
+  AddType text/css                                    css
+
+  # JS
+  # https://html.spec.whatwg.org/multipage/scripting.html#scriptingLanguages
+  AddType text/javascript                             js
+
+  # Data interchange
+  AddType application/json                            json
+
+  # Manifest
+  AddType application/manifest+json                   webmanifest
+
+  # Image
+  AddType image/png                                   png
+  AddType image/jpeg                                  jpeg jpg
+  AddType image/gif                                   gif
+  AddType image/svg+xml                               svg
+  AddType image/webp                                  webp
+
+  # Audio
+  AddType audio/mp4                                   f4a f4b m4a
+  AddType audio/ogg                                   oga ogg opus
+
+  # Video
+  AddType video/mp4                                   f4v f4p m4v mp4
+  AddType video/ogg                                   ogv
+  AddType video/webm                                  webm
+
+  # Serving `.ico` image files with a different media type
+  # prevents Internet Explorer from displaying them as images:
+  # https://github.com/h5bp/html5-boilerplate/commit/37b5fec090d00f38de64b591bcddcb205aadf8ee
+  AddType image/x-icon                                cur ico
+
+  # Fonts
+  AddType font/woff                                   woff
+  AddType font/woff2                                  woff2
+</IfModule>
+
+### --- Character encodings --- ###
+
+# Serve all resources labeled as `text/html` or `text/plain`
+# with the media type `charset` parameter set to `UTF-8`.
+#
+# https://httpd.apache.org/docs/current/mod/core.html#adddefaultcharset
+AddDefaultCharset utf-8
+
+# Serve the following file types with the media type `charset`
+# parameter set to `UTF-8`.
+#
+# https://httpd.apache.org/docs/current/mod/mod_mime.html#addcharset
+<IfModule mod_mime.c>
+  AddCharset utf-8 .css \
+                   .js \
+                   .json \
+                   .webmanifest
+</IfModule>
+
+### --- Rewriting and Access --- ###
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Store the current location in an environment variable CWD to use
+  # mod_rewrite in .htaccess files without knowing the RewriteBase
+  RewriteCond $0#%{REQUEST_URI} ([^#]*)#(.*)\1$
+  RewriteRule ^.*$ - [E=CWD:%2]
+
+  # Handle Authorization Header
+  RewriteCond %{HTTP:Authorization} .
+  RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+  # If the file/directory/symlink does not exist => Redirect to index.php.
+  # For httpd.conf, you need to prefix each '%{REQUEST_FILENAME}' with '%{DOCUMENT_ROOT}'.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  RewriteRule ^.*$ %{ENV:CWD}index.php [QSA,L]
+</IfModule>
+
+# Block access to vcs directories
+<IfModule mod_alias.c>
+  RedirectMatch 404 /\.(?:git|svn|hg)/
+</IfModule>
+
+### --- Compression --- ###
+
+# Compressing resource files will save bandwidth and so improve loading speed especially for users
+# with slower internet connections.
+<FilesMatch "\.js\.gzip$">
+  AddType "text/javascript" .gzip
+</FilesMatch>
+<FilesMatch "\.css\.gzip$">
+  AddType "text/css" .gzip
+</FilesMatch>
+AddEncoding gzip .gzip
+
+<IfModule mod_deflate.c>
+  # Force compression for mangled `Accept-Encoding` request headers
+  # https://developer.yahoo.com/blogs/ydn/pushing-beyond-gzipping-25601.html
+  <IfModule mod_setenvif.c>
+    <IfModule mod_headers.c>
+      SetEnvIfNoCase ^(Accept-EncodXng|X-cept-Encoding|X{15}|~{15}|-{15})$ ^((gzip|deflate)\s*,?\s*)+|[X~-]{4,13}$ HAVE_Accept-Encoding
+      RequestHeader append Accept-Encoding "gzip,deflate" env=HAVE_Accept-Encoding
+    </IfModule>
+  </IfModule>
+
+  # Compress all output labeled with one of the following media types.
+  #
+  # https://httpd.apache.org/docs/current/mod/mod_filter.html#addoutputfilterbytype
+  <IfModule mod_filter.c>
+    AddOutputFilterByType DEFLATE "font/woff" \
+                                  "font/woff2" \
+                                  "application/json" \
+                                  "application/manifest+json" \
+                                  "image/svg+xml" \
+                                  "image/x-icon" \
+                                  "text/css" \
+                                  "text/html" \
+                                  "text/javascript" \
+                                  "text/plain"
+  </IfModule>
+
+  # Map the following filename extensions to the specified
+  # encoding type in order to make Apache serve the file types
+  # with the appropriate `Content-Encoding` response header
+  # (do note that this will NOT make Apache compress them!).
+  #
+  # If these files types would be served without an appropriate
+  # `Content-Enable` response header, client applications (e.g.:
+  # browsers) wouldn't know that they first need to uncompress
+  # the response, and thus, wouldn't be able to understand the
+  # content.
+  #
+  # https://httpd.apache.org/docs/current/mod/mod_mime.html#addencoding
+
+  <IfModule mod_mime.c>
+    AddEncoding gzip              svgz
+  </IfModule>
+</IfModule>
+
+### --- Caching --- ###
+
+# Serve resources with far-future expires headers.
+#
+# https://httpd.apache.org/docs/current/mod/mod_expires.html
+<IfModule mod_expires.c>
+  ExpiresActive on
+
+  # CSS
+  # ExpiresByType text/css                              "access plus 1 week"
+
+  # Favicon (cannot be renamed!) and cursor images
+  ExpiresByType image/x-icon                          "access plus 1 week"
+
+  # JavaScript
+  ExpiresByType text/javascript                       "access plus 1 week"
+
+  # Manifest file
+  ExpiresByType application/manifest+json             "access plus 1 week"
+
+  # Media files
+  ExpiresByType audio/ogg                             "access plus 1 week"
+  ExpiresByType image/gif                             "access plus 1 week"
+  ExpiresByType image/jpeg                            "access plus 1 week"
+  ExpiresByType image/png                             "access plus 1 week"
+  ExpiresByType image/svg+xml                         "access plus 1 week"
+  ExpiresByType image/webp                            "access plus 1 week"
+  ExpiresByType video/mp4                             "access plus 1 week"
+  ExpiresByType video/ogg                             "access plus 1 week"
+  ExpiresByType video/webm                            "access plus 1 week"
+
+  # Web fonts
+  ExpiresByType font/woff                             "access plus 1 week"
+  ExpiresByType font/woff2                            "access plus 1 week"
+</IfModule>
+
+### --- Misc --- ###
+
+# Disable the pattern matching based on filenames.
+#
+# This setting prevents Apache from returning a 404 error as the result
+# of a rewrite when the directory with the same name does not exist.
+#
+# https://httpd.apache.org/docs/current/content-negotiation.html#multiviews
+Options -MultiViews
+
+# Block access to directories without a default document.
+#
+# You should leave the following uncommented, as you shouldn't allow
+# anyone to surf through every directory on your server (which may
+# includes rather private places such as the CMS's directories).
+<IfModule mod_autoindex.c>
+  Options -Indexes
+</IfModule>
+
+# Remove `ETags` as resources are sent with far-future expires headers.
+#
+# https://developer.yahoo.com/performance/rules.html#etags
+# https://tools.ietf.org/html/rfc7232#section-2.3
+
+# `FileETag None` doesn't work in all cases.
+<IfModule mod_headers.c>
+  Header unset ETag
+</IfModule>
+
+FileETag None
